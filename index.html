@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>힐링 찻집 (Pro v9 - 시간 제한 추가)</title>
+    <title>힐링 찻집 (Pro v10 - 최고 점수)</title>
     <style>
         /* --- 기본 및 레이아웃 --- */
         html, body {
@@ -64,7 +65,7 @@
             flex: 1; /* 오른쪽 정렬 */
         }
         
-        /* 전체 타이머 (새로 추가) */
+        /* 전체 타이머 */
         #global-timer {
             font-size: 1.0em;
             color: #FFEB3B; /* 콤보와 같은 노란색 */
@@ -318,6 +319,14 @@
             color: #FFEB3B;
             margin: 10px 0;
         }
+        
+        /* 최고 점수 (새로 추가) */
+        #high-score-display {
+            font-size: 1.0em;
+            font-weight: bold;
+            color: #FFFFFF;
+            margin: 0;
+        }
 
     </style>
 </head>
@@ -347,16 +356,11 @@
                 <rect x="20" y="10" width="60" height="80" rx="10" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="4"/><rect x="30" y="20" width="40" height="20" fill="#2196F3"/><text x="50" y="65" font-size="20" fill="#424242" text-anchor="middle" font-weight="bold">MILK</text>
             </svg>
             
-            
-<svg id="svg-macaron" viewBox="0 0 100 100">
-                
-<ellipse cx="50" cy="75" rx="35" ry="15" fill="#F48FB1"/> 
-                
-<rect x="15" y="50" width="70" height="20" fill="#E0E0E0"/> 
-                
-<ellipse cx="50" cy="40" rx="35" ry="15" fill="#F48FB1"/> 
-                
-<circle cx="35" cy="38" r="3" fill="#FFF" opacity="0.5"/> 
+            <svg id="svg-macaron" viewBox="0 0 100 100">
+                <ellipse cx="50" cy="75" rx="35" ry="15" fill="#F48FB1"/> 
+                <rect x="15" y="50" width="70" height="20" fill="#E0E0E0"/> 
+                <ellipse cx="50" cy="40" rx="35" ry="15" fill="#F48FB1"/> 
+                <circle cx="35" cy="38" r="3" fill="#FFF" opacity="0.5"/> 
             </svg>
         </defs>
     </svg>
@@ -370,8 +374,7 @@
                 <button id="difficulty-button" class="top-button easy">Easy</button>
             </div>
             <div id="score-combo">
-                
-<div id="global-timer">Time: 30</div> 
+                <div id="global-timer">Time: 30</div> 
                 <div id="score">점수: 0</div>
                 <div id="combo-display"></div>
             </div>
@@ -394,6 +397,8 @@
         </div>
 
         <div id="game-overlay" data-mode="start"> <h1>🍵 힐링 찻집 Pro 🍵</h1>
+            
+<p id="high-score-display">최고 점수: 0</p> 
             <p id="overlay-message">
                 손님의 주문을 보고<br>
                 인내심이 닳기 전에 음료를 주세요!<br>
@@ -414,7 +419,7 @@
             const scoreDisplay = document.getElementById('score');
             const comboDisplay = document.getElementById('combo-display');
             const livesDisplay = document.getElementById('lives');
-            const globalTimerDisplay = document.getElementById('global-timer'); // (새로 추가)
+            const globalTimerDisplay = document.getElementById('global-timer'); 
             const animalDisplay = document.getElementById('animal-display');
             const orderBubble = document.getElementById('order-bubble');
             const orderList = document.getElementById('order-list'); 
@@ -422,6 +427,7 @@
             const startButton = document.getElementById('start-button');
             const finalScoreDisplay = document.getElementById('final-score');
             const overlayMessage = document.getElementById('overlay-message');
+            const highScoreDisplay = document.getElementById('high-score-display'); // (새로 추가)
             const feedbackDisplay = document.getElementById('feedback-display');
             const patienceBar = document.getElementById('patience-bar');
             const infoButton = document.getElementById('info-button');
@@ -438,17 +444,18 @@
             let currentOrder = []; 
             let gameActive = false;
             let patienceTimerId = null;
-            let globalTimerId = null; // (새로 추가)
-            let globalTimeLeft = 30; // (새로 추가)
+            let globalTimerId = null; 
+            let globalTimeLeft = 30; // (수정됨)
             let lastOrders = []; 
+            const HIGH_SCORE_KEY = 'healingCafeHighScore'; // (새로 추가)
 
-            // --- 게임 설정 (수정됨) ---
+            // --- 게임 설정 ---
             let difficulty = 'easy';
             let PATIENCE_BASE_TIMES = {
                 'easy': 2000,    // 2초
-                'medium': 1300,  // 1.3초
-                'hard': 900,     // 0.9초
-                'extreme': 600   // 0.6초
+                'medium': 1450,  // 1.45초
+                'hard': 950,     // 0.95초
+                'extreme': 650   // 0.65초
             };
             let currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
             const MAX_CONSECUTIVE_ORDERS = 2; 
@@ -478,6 +485,20 @@
             adjustOverlayHeight();
             window.addEventListener('resize', adjustOverlayHeight);
             setTimeout(adjustOverlayHeight, 100); 
+            
+            // --- 최고 점수 함수 (새로 추가) ---
+            function getHighScore() {
+                return parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0');
+            }
+            
+            function saveHighScore(newScore) {
+                const currentHighScore = getHighScore();
+                if (newScore > currentHighScore) {
+                    localStorage.setItem(HIGH_SCORE_KEY, newScore);
+                    return true; // 신기록
+                }
+                return false;
+            }
 
             // --- 핵심 함수 ---
 
@@ -489,7 +510,6 @@
                 }
             }
             
-            // (수정됨)
             function startGame() {
                 score = 0;
                 lives = 3;
@@ -497,10 +517,10 @@
                 gameActive = true;
                 lastOrders = []; 
                 currentOrder = []; 
-                globalTimeLeft = 30; // (추가)
+                globalTimeLeft = 30; // (수정됨)
                 
                 scoreDisplay.textContent = `점수: ${score}`;
-                globalTimerDisplay.textContent = `Time: ${globalTimeLeft}`; // (추가)
+                globalTimerDisplay.textContent = `Time: ${globalTimeLeft}`; 
                 updateComboDisplay();
                 updateLivesDisplay();
                 
@@ -509,26 +529,30 @@
                 infoButton.disabled = true;
                 difficultyButton.disabled = true;
                 
-                // (추가) 전체 시간 타이머 시작
                 clearInterval(globalTimerId);
                 globalTimerId = setInterval(() => {
                     globalTimeLeft--;
                     globalTimerDisplay.textContent = `Time: ${globalTimeLeft}`;
                     if (globalTimeLeft <= 0) {
-                        endGame(); // 시간이 0이 되면 게임 종료
+                        endGame(); 
                     }
                 }, 1000);
 
                 generateNewOrder();
             }
 
-            // (수정됨)
             function endGame() {
                 gameActive = false;
                 clearTimeout(patienceTimerId);
-                clearInterval(globalTimerId); // (추가) 전체 시간 타이머 정지
+                clearInterval(globalTimerId); 
+                
+                const isNewHighScore = saveHighScore(score); // (추가) 점수 저장
                 
                 finalScoreDisplay.textContent = `최종 점수: ${score}점`;
+                if (isNewHighScore) {
+                    finalScoreDisplay.textContent += ' (신기록!)';
+                }
+                
                 startButton.textContent = '다시하기';
                 setupStartScreen(true); 
                 
@@ -602,7 +626,10 @@
                 // 2. 시간 계산 (현재 난이도의 기본 시간을 사용)
                 currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
                 const numItems = currentOrder.length;
-                const timeMultiplier = 1 + (numItems - 1) * 0.7;
+                
+                // ▼ 여기를 0.7에서 0.45로 수정
+                const timeMultiplier = 1 + (numItems - 1) * 0.45; 
+                
                 const totalPatienceTime = currentBasePatienceTime * timeMultiplier;
                 
                 // 3. 타이머 시작
@@ -663,7 +690,7 @@
             }
 
             function handleWrongAnswer(isTimeout) {
-                if (!gameActive) return; // (추가) endGame이 두 번 호출되는 것 방지
+                if (!gameActive) return; 
                 
                 lives--;
                 currentCombo = 0;
@@ -675,7 +702,6 @@
                     if (lives <= 0) {
                         endGame();
                     } else {
-                        // (추가) globalTimeLeft 체크
                         if (globalTimeLeft > 0) {
                             gameActive = true;
                             generateNewOrder();
@@ -719,6 +745,7 @@
                 if (gameActive) return; 
                 gameOverlay.dataset.mode = 'info';
                 finalScoreDisplay.style.display = 'none';
+                highScoreDisplay.style.display = 'none'; // (추가) 정보 화면에선 최고 점수 숨김
                 overlayMessage.innerHTML = `
                     --- <b>게임 방법</b> ---<br><br>
                     1. 손님의 주문(말풍선)을 확인하세요.<br>
@@ -727,7 +754,8 @@
                     4. 연속 성공 시 <b>콤보 보너스</b> 점수를 얻습니다.<br>
                     5. 실수 시(오답, 시간초과) 목숨(❤️)이 1개 줄어듭니다.<br>
                     6. 목숨 3개를 잃거나 **전체 시간 30초**가 다 닳으면<br>
-                       게임이 종료됩니다.
+                       게임이 종료됩니다.<br>
+                    7. 최고 점수는 브라우저에 자동 저장됩니다.
                 `;
                 startButton.textContent = '돌아가기';
                 gameOverlay.classList.remove('hidden');
@@ -757,11 +785,16 @@
                 currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
             }
             
+            // (수정됨)
             function setupStartScreen(isGameOver = false) {
                 gameOverlay.dataset.mode = 'start';
                 overlayMessage.style.display = 'block';
                 
                 finalScoreDisplay.style.display = isGameOver ? 'block' : 'none';
+                
+                // (추가) 최고 점수 표시
+                highScoreDisplay.style.display = 'block';
+                highScoreDisplay.textContent = `최고 점수: ${getHighScore()}점`;
 
                 overlayMessage.innerHTML = `
                     손님의 주문을 보고<br>
