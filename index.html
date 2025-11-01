@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>힐링 찻집</title>
+    <title>힐링 찻집 (Pro v7 - 난이도, SVG 수정)</title>
     <style>
         /* --- 기본 및 레이아웃 --- */
         html, body {
@@ -89,6 +89,7 @@
             transition: background-color 0.2s, color 0.2s, opacity 0.2s;
             touch-action: manipulation; /* 터치 시 지연 제거 */
             padding: 0 10px;
+            color: white; /* 모든 난이도 버튼 텍스트 흰색 */
         }
         
         #info-button {
@@ -97,23 +98,22 @@
             padding: 0;
             background-color: white;
             color: #5D4037;
-            font-size: 1.1em;
-        }
-
-        #difficulty-button {
-            background-color: #8BC34A; /* Easy - 초록색 */
-            color: white;
         }
         
+        /* 난이도별 버튼 색상 */
+        #difficulty-button.easy {
+            background-color: #8BC34A; /* Easy - 초록색 */
+        }
         #difficulty-button.medium {
             background-color: #FFB300; /* Medium - 주황색 */
-            color: white;
         }
-        
         #difficulty-button.hard {
             background-color: #F44336; /* Hard - 빨간색 */
-            color: white; /* 텍스트 색상 추가 */
         }
+        #difficulty-button.extreme {
+            background-color: #B71C1C; /* Extreme - 진한 빨간색 */
+        }
+
 
         .top-button:disabled {
             opacity: 0.5;
@@ -340,8 +340,18 @@
                 <rect x="20" y="10" width="60" height="80" rx="10" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="4"/><rect x="30" y="20" width="40" height="20" fill="#2196F3"/><text x="50" y="65" font-size="20" fill="#424242" text-anchor="middle" font-weight="bold">MILK</text>
             </svg>
             
-            <svg id="svg-macaron" viewBox="0 0 100 100">
-                <ellipse cx="50" cy="40" rx="35" ry="15" fill="#F48FB1"/> <rect x="15" y="50" width="70" height="20" fill="#E0E0E0"/> <ellipse cx="50" cy="75" rx="35" ry="15" fill="#F48FB1"/> <circle cx="35" cy="38" r="3" fill="#FFF" opacity="0.5"/> </svg>
+            
+
+<svg id="svg-macaron" viewBox="0 0 100 100">
+                
+<ellipse cx="50" cy="75" rx="35" ry="15" fill="#F48FB1"/> 
+                
+<rect x="15" y="50" width="70" height="20" fill="#E0E0E0"/> 
+                
+<ellipse cx="50" cy="40" rx="35" ry="15" fill="#F48FB1"/> 
+                
+<circle cx="35" cy="38" r="3" fill="#FFF" opacity="0.5"/> 
+            </svg>
         </defs>
     </svg>
 
@@ -351,7 +361,8 @@
             <div id="lives"></div>
             <div id="top-buttons">
                 <button id="info-button" class="top-button">?</button>
-                <button id="difficulty-button" class="top-button">Easy</button>
+                
+<button id="difficulty-button" class="top-button easy">Easy</button>
             </div>
             <div id="score-combo">
                 <div id="score">점수: 0</div>
@@ -421,12 +432,14 @@
 
             // --- 게임 설정 (수정됨) ---
             let difficulty = 'easy';
-            let PATIENCE_BASE_TIMES = { // 난이도별 기본 시간
-                'easy': 2000, // 2초 (수정됨)
-                'medium': 1300, // 1.3초 (수정됨)
-                'hard': 600    // 0.6초
+            
+<let PATIENCE_BASE_TIMES = {
+                'easy': 1900,    // 1.9초
+                'medium': 1300,  // 1.3초
+                'hard': 900,     // 0.9초
+                'extreme': 600   // 0.6초
             };
-            let currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; // 현재 난이도의 기본 시간
+            let currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
             const MAX_CONSECUTIVE_ORDERS = 2; 
 
             // --- 이벤트 리스너 설정 ---
@@ -543,14 +556,13 @@
                         // 중복 허용
                         newOrderList.push(DRINKS[Math.floor(Math.random() * DRINKS.length)]);
                     }
-                    newOrderList.sort(); // 순서 상관없이 비교하기 위해 정렬
+                    newOrderList.sort(); 
                     newOrderString = newOrderList.join(','); 
 
                     // 연속 주문 확인
                     if (lastOrders.length < MAX_CONSECUTIVE_ORDERS) break; 
                     
                     const lastNOrders = lastOrders.slice(-MAX_CONSECUTIVE_ORDERS);
-                    // 최근 N개 주문이 모두 새 주문과 다르다면, 루프 탈출
                     if (!lastNOrders.every(order => order === newOrderString)) break; 
                     
                 } while (true); 
@@ -562,7 +574,7 @@
                 }
 
                 // 2. 시간 계산 (현재 난이도의 기본 시간을 사용)
-                currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; // 현재 난이도 기본 시간 불러오기
+                currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
                 const numItems = currentOrder.length;
                 const timeMultiplier = 1 + (numItems - 1) * 0.7;
                 const totalPatienceTime = currentBasePatienceTime * timeMultiplier;
@@ -587,21 +599,17 @@
                 
                 const selectedDrinkId = selectedButton.dataset.drinkId;
 
-                // 1. 주문 목록에 선택한 음료가 있는지 확인
                 const index = currentOrder.indexOf(selectedDrinkId);
 
                 if (index > -1) {
-                    // 2. 정답: 주문 목록에서 해당 아이템 1개 제거
                     currentOrder.splice(index, 1);
-                    redrawOrderBubble(); // 말풍선 UI 갱신
+                    redrawOrderBubble(); 
 
-                    // 3. 주문을 모두 완료했는지 확인
                     if (currentOrder.length === 0) {
                         clearTimeout(patienceTimerId); 
                         handleCorrectAnswer(); 
                     }
                 } else {
-                    // 4. 오답: 주문 목록에 없는 음료 클릭
                     clearTimeout(patienceTimerId); 
                     handleWrongAnswer(false); 
                 }
@@ -701,20 +709,21 @@
                 if (difficulty === 'easy') {
                     difficulty = 'medium';
                     difficultyButton.textContent = 'Medium';
-                    difficultyButton.classList.add('medium');
-                    difficultyButton.classList.remove('hard');
+                    difficultyButton.className = 'top-button medium'; // 클래스 전체 교체
                 } else if (difficulty === 'medium') {
                     difficulty = 'hard';
                     difficultyButton.textContent = 'Hard';
-                    difficultyButton.classList.remove('medium');
-                    difficultyButton.classList.add('hard');
-                } else { // 'hard'
+                    difficultyButton.className = 'top-button hard';
+                } else if (difficulty === 'hard') {
+                    difficulty = 'extreme';
+                    difficultyButton.textContent = 'Extreme';
+                    difficultyButton.className = 'top-button extreme';
+                } else { // 'extreme'
                     difficulty = 'easy';
                     difficultyButton.textContent = 'Easy';
-                    difficultyButton.classList.remove('hard');
-                    difficultyButton.classList.remove('medium');
+                    difficultyButton.className = 'top-button easy';
                 }
-                currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; // 난이도 변경 시 기본 시간 업데이트
+                currentBasePatienceTime = PATIENCE_BASE_TIMES[difficulty]; 
             }
             
             function setupStartScreen(isGameOver = false) {
