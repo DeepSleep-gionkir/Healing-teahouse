@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>힐링 찻집 (Pro v8 - 버그 수정)</title>
+    <title>힐링 찻집 (Pro v9 - 시간 제한 추가)</title>
     <style>
         /* --- 기본 및 레이아웃 --- */
         html, body {
@@ -62,6 +62,13 @@
             text-align: right;
             font-size: 1.1em;
             flex: 1; /* 오른쪽 정렬 */
+        }
+        
+        /* 전체 타이머 (새로 추가) */
+        #global-timer {
+            font-size: 1.0em;
+            color: #FFEB3B; /* 콤보와 같은 노란색 */
+            font-weight: bold;
         }
 
         #combo-display {
@@ -360,10 +367,11 @@
             <div id="lives"></div>
             <div id="top-buttons">
                 <button id="info-button" class="top-button">?</button>
-                
-<button id="difficulty-button" class="top-button easy">Easy</button>
+                <button id="difficulty-button" class="top-button easy">Easy</button>
             </div>
             <div id="score-combo">
+                
+<div id="global-timer">Time: 30</div> 
                 <div id="score">점수: 0</div>
                 <div id="combo-display"></div>
             </div>
@@ -406,6 +414,7 @@
             const scoreDisplay = document.getElementById('score');
             const comboDisplay = document.getElementById('combo-display');
             const livesDisplay = document.getElementById('lives');
+            const globalTimerDisplay = document.getElementById('global-timer'); // (새로 추가)
             const animalDisplay = document.getElementById('animal-display');
             const orderBubble = document.getElementById('order-bubble');
             const orderList = document.getElementById('order-list'); 
@@ -429,11 +438,12 @@
             let currentOrder = []; 
             let gameActive = false;
             let patienceTimerId = null;
+            let globalTimerId = null; // (새로 추가)
+            let globalTimeLeft = 30; // (새로 추가)
             let lastOrders = []; 
 
             // --- 게임 설정 (수정됨) ---
             let difficulty = 'easy';
-            
             let PATIENCE_BASE_TIMES = {
                 'easy': 2000,    // 2초
                 'medium': 1300,  // 1.3초
@@ -479,6 +489,7 @@
                 }
             }
             
+            // (수정됨)
             function startGame() {
                 score = 0;
                 lives = 3;
@@ -486,8 +497,10 @@
                 gameActive = true;
                 lastOrders = []; 
                 currentOrder = []; 
+                globalTimeLeft = 30; // (추가)
                 
                 scoreDisplay.textContent = `점수: ${score}`;
+                globalTimerDisplay.textContent = `Time: ${globalTimeLeft}`; // (추가)
                 updateComboDisplay();
                 updateLivesDisplay();
                 
@@ -495,13 +508,25 @@
                 
                 infoButton.disabled = true;
                 difficultyButton.disabled = true;
+                
+                // (추가) 전체 시간 타이머 시작
+                clearInterval(globalTimerId);
+                globalTimerId = setInterval(() => {
+                    globalTimeLeft--;
+                    globalTimerDisplay.textContent = `Time: ${globalTimeLeft}`;
+                    if (globalTimeLeft <= 0) {
+                        endGame(); // 시간이 0이 되면 게임 종료
+                    }
+                }, 1000);
 
                 generateNewOrder();
             }
 
+            // (수정됨)
             function endGame() {
                 gameActive = false;
                 clearTimeout(patienceTimerId);
+                clearInterval(globalTimerId); // (추가) 전체 시간 타이머 정지
                 
                 finalScoreDisplay.textContent = `최종 점수: ${score}점`;
                 startButton.textContent = '다시하기';
@@ -638,6 +663,8 @@
             }
 
             function handleWrongAnswer(isTimeout) {
+                if (!gameActive) return; // (추가) endGame이 두 번 호출되는 것 방지
+                
                 lives--;
                 currentCombo = 0;
                 updateLivesDisplay();
@@ -648,8 +675,11 @@
                     if (lives <= 0) {
                         endGame();
                     } else {
-                        gameActive = true;
-                        generateNewOrder();
+                        // (추가) globalTimeLeft 체크
+                        if (globalTimeLeft > 0) {
+                            gameActive = true;
+                            generateNewOrder();
+                        }
                     }
                 }, 500);
             }
@@ -684,6 +714,7 @@
                 buttons.forEach(button => drinkOptions.appendChild(button));
             }
 
+            // (수정됨)
             function showInfo() {
                 if (gameActive) return; 
                 gameOverlay.dataset.mode = 'info';
@@ -691,26 +722,25 @@
                 overlayMessage.innerHTML = `
                     --- <b>게임 방법</b> ---<br><br>
                     1. 손님의 주문(말풍선)을 확인하세요.<br>
-                       (최대 3개까지 주문합니다)<br>
-                    2. 하단의 메뉴 중 올바른 메뉴를 <b>순서 상관없이</b> 터치하세요.<br>
-                    3. 주문한 메뉴를 모두 제공해야 성공입니다.<br>
-                    4. 인내심 바가 닳기 전에 성공해야 합니다.<br>
-                       (주문이 많으면 시간이 조금 늘어납니다)<br>
-                    5. 연속 성공 시 <b>콤보 보너스</b> 점수를 얻습니다.<br>
-                    6. 실수 시(오답, 시간초과) 목숨(❤️)이 1개 줄어듭니다.
+                    2. 올바른 메뉴를 <b>순서 상관없이</b> 터치하세요.<br>
+                    3. 인내심 바가 닳기 전에 성공해야 합니다.<br>
+                    4. 연속 성공 시 <b>콤보 보너스</b> 점수를 얻습니다.<br>
+                    5. 실수 시(오답, 시간초과) 목숨(❤️)이 1개 줄어듭니다.<br>
+                    6. 목숨 3개를 잃거나 **전체 시간 30초**가 다 닳으면<br>
+                       게임이 종료됩니다.
                 `;
                 startButton.textContent = '돌아가기';
                 gameOverlay.classList.remove('hidden');
             }
 
-            // 난이도 토글 함수 (수정됨)
+            // (수정됨)
             function toggleDifficulty() {
                 if (gameActive) return;
 
                 if (difficulty === 'easy') {
                     difficulty = 'medium';
                     difficultyButton.textContent = 'Medium';
-                    difficultyButton.className = 'top-button medium'; // 클래스 전체 교체
+                    difficultyButton.className = 'top-button medium'; 
                 } else if (difficulty === 'medium') {
                     difficulty = 'hard';
                     difficultyButton.textContent = 'Hard';
