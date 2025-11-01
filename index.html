@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>힐링 찻집 (Pro v2)</title>
+    <title>힐링 찻집 (Pro v3)</title>
     <style>
         /* --- 기본 및 레이아웃 --- */
         html, body {
@@ -86,6 +86,7 @@
             font-size: 14px;
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+            touch-action: manipulation; /* 터치 시 지연 제거 */
         }
         
         #info-button {
@@ -210,6 +211,7 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             cursor: pointer;
             transition: transform 0.1s ease, background-color 0.1s ease;
+            touch-action: manipulation; /* 터치 시 지연 제거 */
         }
 
         .drink-button:active {
@@ -263,6 +265,7 @@
             cursor: pointer;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
             margin-top: 10px;
+            touch-action: manipulation;
         }
 
         #final-score {
@@ -291,8 +294,8 @@
             
             <svg id="svg-coffee" viewBox="0 0 100 100">
                 <path d="M 15 85 H 85 C 87.7 85 90 82.7 90 80 V 80 C 90 77.3 87.7 75 85 75 H 15 C 12.3 75 10 77.3 10 80 V 80 C 10 82.7 12.3 85 15 85 Z" fill="#E0E0E0"/>
-                <path d="M 18 75 V 25 C 18 22.2 20.2 20 23 20 H 77 C 79.8 20 82 22.2 82 25 V 75 Z" fill="#FFF"/>
-                <path d="M 82 35 C 90.8 35 98 42.2 98 50 C 98 57.8 90.8 65 82 65 V 35 Z" fill="#FFF" stroke="#FFF" stroke-width="2"/>
+                <path d="M 18 75 V 25 C 18 22.2 20.2 20 23 20 H 77 C 79.8 20 82 22.2 82 25 V 75 Z" fill="#F5F5F5"/>
+                <path d="M 82 35 C 90.8 35 98 42.2 98 50 C 98 57.8 90.8 65 82 65 V 35 Z" fill="#F5F5F5" stroke="#F5F5F5" stroke-width="2"/>
                 <ellipse cx="50" cy="28" rx="28" ry="10" fill="#6D4C41"/>
             </svg>
 
@@ -375,12 +378,16 @@
             let currentOrder = null;
             let gameActive = false;
             let patienceTimerId = null;
+            let lastOrders = []; // 최근 주문 기록 (연속 주문 제한용)
 
             // --- 게임 설정 ---
             let difficulty = 'easy'; // 'easy' 또는 'hard'
             let PATIENCE_TIME_MS = 5000; // 손님 인내심 (기본 5초)
+            const MAX_CONSECUTIVE_ORDERS = 2; // 최대 연속 주문 횟수
 
             // --- 이벤트 리스너 설정 ---
+            // 'touchstart'는 모바일, 'mousedown'은 PC를 위한 이벤트.
+            // touch-action: manipulation; 을 CSS에 추가하여 300ms 딜레이를 제거함.
             const clickEvent = ('ontouchstart' in window) ? 'touchstart' : 'mousedown';
             
             startButton.addEventListener(clickEvent, handleStartButton);
@@ -398,11 +405,9 @@
             // 1. 시작 버튼 핸들러
             function handleStartButton() {
                 if (gameOverlay.dataset.mode === 'info') {
-                    // 정보 화면 -> 시작 화면
-                    setupStartScreen();
+                    setupStartScreen(); // 정보 화면 -> 시작 화면
                 } else {
-                    // 시작 화면 -> 게임 시작
-                    startGame();
+                    startGame(); // 시작 화면 -> 게임 시작
                 }
             }
             
@@ -412,6 +417,7 @@
                 lives = 3;
                 currentCombo = 0;
                 gameActive = true;
+                lastOrders = []; // 게임 시작 시 주문 기록 초기화
                 
                 scoreDisplay.textContent = `점수: ${score}`;
                 updateComboDisplay();
@@ -482,14 +488,30 @@
                 animalDisplay.innerHTML = '';
                 animalDisplay.appendChild(document.getElementById(randomAnimalId).cloneNode(true));
 
-                // 랜덤 음료 (정답)
-                const randomDrinkId = DRINKS[Math.floor(Math.random() * DRINKS.length)];
-                currentOrder = randomDrinkId;
-                
+                // *** 요청사항: 연속 주문 제한 로직 (새로 추가) ***
+                let newOrderCandidate;
+                let consecutiveCount = 0;
+                do {
+                    newOrderCandidate = DRINKS[Math.floor(Math.random() * DRINKS.length)];
+                    // 최근 주문이 있을 경우, 연속된 주문 카운트
+                    if (lastOrders.length > 0 && newOrderCandidate === lastOrders[lastOrders.length - 1]) {
+                        consecutiveCount++;
+                    } else {
+                        consecutiveCount = 0; // 다른 주문이면 리셋
+                    }
+                } while (consecutiveCount >= MAX_CONSECUTIVE_ORDERS); // 최대 2회 연속까지만 허용
+
+                currentOrder = newOrderCandidate;
+                lastOrders.push(currentOrder);
+                // 기록은 최근 3개 정도만 유지 (필요에 따라 조절)
+                if (lastOrders.length > 3) {
+                    lastOrders.shift();
+                }
+
                 orderBubble.innerHTML = '';
-                orderBubble.appendChild(document.getElementById(randomDrinkId).cloneNode(true));
+                orderBubble.appendChild(document.getElementById(currentOrder).cloneNode(true));
                 
-                // *** 요청사항: 버튼 위치 섞기 ***
+                // 버튼 위치 섞기
                 shuffleButtons();
             }
 
@@ -570,7 +592,7 @@
                 comboDisplay.textContent = (currentCombo > 1) ? `COMBO x${currentCombo}` : '';
             }
 
-            // 11. *** 버튼 섞기 함수 (새로 추가) ***
+            // 11. 버튼 섞기 함수
             function shuffleButtons() {
                 const buttons = Array.from(drinkOptions.children);
                 // 간단한 배열 섞기 (Fisher-Yates)
@@ -578,13 +600,12 @@
                     const j = Math.floor(Math.random() * (i + 1));
                     [buttons[i], buttons[j]] = [buttons[j], buttons[i]];
                 }
-                // 섞인 순서대로 DOM에 다시 추가
                 buttons.forEach(button => drinkOptions.appendChild(button));
             }
 
-            // 12. *** 정보 버튼 함수 (새로 추가) ***
+            // 12. 정보 버튼 함수
             function showInfo() {
-                if (gameActive) return; // 게임 중에는 작동 안 함
+                if (gameActive) return;
                 
                 gameOverlay.dataset.mode = 'info';
                 finalScoreDisplay.style.display = 'none';
@@ -601,7 +622,7 @@
                 gameOverlay.classList.remove('hidden');
             }
 
-            // 13. *** 난이도 토글 함수 (새로 추가) ***
+            // 13. 난이도 토글 함수
             function toggleDifficulty() {
                 if (gameActive) return;
 
@@ -618,7 +639,7 @@
                 }
             }
             
-            // 14. *** 시작 화면 설정 함수 (새로 추가) ***
+            // 14. 시작 화면 설정 함수
             function setupStartScreen(isGameOver = false) {
                 gameOverlay.dataset.mode = 'start';
                 overlayMessage.style.display = 'block';
