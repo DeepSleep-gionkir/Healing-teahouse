@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>힐링 찻집 (Pro v3)</title>
+    <title>힐링 찻집 (Pro v5 - 멀티오더)</title>
     <style>
         /* --- 기본 및 레이아웃 --- */
         html, body {
@@ -49,6 +49,7 @@
             color: white;
             font-weight: bold;
             flex-shrink: 0; /* 상단 바 크기 고정 */
+            z-index: 20; /* 오버레이보다 위에 있도록 */
         }
         
         #lives {
@@ -78,7 +79,7 @@
         }
 
         .top-button {
-            width: 50px;
+            min-width: 50px;
             height: 30px;
             border-radius: 15px;
             border: none;
@@ -87,10 +88,13 @@
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s, opacity 0.2s;
             touch-action: manipulation; /* 터치 시 지연 제거 */
+            padding: 0 10px;
         }
         
         #info-button {
             width: 30px; /* 원형 버튼 */
+            min-width: 30px;
+            padding: 0;
             background-color: white;
             color: #5D4037;
             font-size: 1.1em;
@@ -98,6 +102,11 @@
 
         #difficulty-button {
             background-color: #8BC34A; /* Easy - 초록색 */
+            color: white;
+        }
+        
+        #difficulty-button.medium {
+            background-color: #FFB300; /* Medium - 주황색 */
             color: white;
         }
         
@@ -129,26 +138,55 @@
             transition: transform 0.3s ease;
         }
 
+        /* 주문 말풍선 (수정됨) */
         #order-bubble {
             position: absolute;
-            top: 20px;
-            right: 30px;
-            width: 80px;
-            height: 80px;
+            top: 10px;
+            right: 15px;
+            width: 90px; /* 크기 증가 */
+            height: 90px; /* 크기 증가 */
             background-color: white;
             border: 4px solid #A1887F;
             border-radius: 50%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
         }
-
-        #order-bubble svg {
+        
+        /* 주문 아이템 리스트 (새로 추가) */
+        #order-list {
+            display: flex;
+            flex-wrap: wrap; /* 아이템이 3개일 때 줄바꿈 */
+            justify-content: center;
+            align-items: center;
             width: 100%;
             height: 100%;
+            gap: 2px; /* 아이템 간 간격 */
         }
+        
+        #order-list svg {
+            flex-shrink: 0;
+        }
+        
+        #order-list.count-1 svg {
+            width: 55px;
+            height: 55px;
+        }
+        
+        #order-list.count-2 svg,
+        #order-list.count-3 svg {
+            width: 30px; /* 30 + 2(gap) + 30 = 62px (내부 공간에 맞춤) */
+            height: 30px;
+        }
+        
+        #order-list.count-0 svg { /* 주문 완료 시 */
+            width: 0;
+            height: 0;
+        }
+
 
         /* 인내심 타이머 바 */
         #patience-bar-container {
@@ -228,10 +266,8 @@
         /* --- 시작/종료 화면 --- */
         #game-overlay {
             position: absolute;
-            top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
             background-color: rgba(93, 64, 55, 0.85);
             color: white;
             display: flex;
@@ -239,7 +275,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            z-index: 10;
+            z-index: 10; /* stats-area (20) 보다 낮게 */
             transition: opacity 0.5s ease, visibility 0.5s;
             visibility: visible;
             opacity: 1;
@@ -302,9 +338,9 @@
             <svg id="svg-milk" viewBox="0 0 100 100">
                 <rect x="20" y="10" width="60" height="80" rx="10" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="4"/><rect x="30" y="20" width="40" height="20" fill="#2196F3"/><text x="50" y="65" font-size="20" fill="#424242" text-anchor="middle" font-weight="bold">MILK</text>
             </svg>
+            
             <svg id="svg-macaron" viewBox="0 0 100 100">
-                <ellipse cx="50" cy="70" rx="35" ry="15" fill="#F48FB1"/><rect x="15" y="55" width="70" height="15" fill="#FFFDE7"/><ellipse cx="50" cy="55" rx="35" ry="15" fill="#F48FB1"/><circle cx="35" cy="53" r="3" fill="#FFF" opacity="0.5"/>
-            </svg>
+                <ellipse cx="50" cy="40" rx="35" ry="15" fill="#F48FB1"/> <rect x="15" y="50" width="70" height="20" fill="#FFFDE7"/> <ellipse cx="50" cy="75" rx="35" ry="15" fill="#F48FB1"/> <circle cx="35" cy="38" r="3" fill="#FFF" opacity="0.5"/> </svg>
         </defs>
     </svg>
 
@@ -324,7 +360,9 @@
 
         <div id="customer-area">
             <div id="animal-display"></div>
-            <div id="order-bubble"></div>
+            <div id="order-bubble">
+                <div id="order-list"></div>
+            </div>
             <div id="patience-bar-container">
                 <div id="patience-bar"></div>
             </div>
@@ -350,20 +388,20 @@
         document.addEventListener('DOMContentLoaded', () => {
 
             // --- DOM 요소 참조 ---
+            const statsArea = document.getElementById('stats-area');
+            const gameOverlay = document.getElementById('game-overlay');
             const scoreDisplay = document.getElementById('score');
             const comboDisplay = document.getElementById('combo-display');
             const livesDisplay = document.getElementById('lives');
             const animalDisplay = document.getElementById('animal-display');
             const orderBubble = document.getElementById('order-bubble');
+            const orderList = document.getElementById('order-list'); // (새로 추가)
             const drinkOptions = document.getElementById('drink-options');
-            const gameOverlay = document.getElementById('game-overlay');
             const startButton = document.getElementById('start-button');
             const finalScoreDisplay = document.getElementById('final-score');
             const overlayMessage = document.getElementById('overlay-message');
             const feedbackDisplay = document.getElementById('feedback-display');
             const patienceBar = document.getElementById('patience-bar');
-            
-            // 새로 추가된 버튼
             const infoButton = document.getElementById('info-button');
             const difficultyButton = document.getElementById('difficulty-button');
 
@@ -371,23 +409,21 @@
             const ANIMALS = ['svg-bear', 'svg-rabbit'];
             const DRINKS = ['svg-tea', 'svg-coffee', 'svg-milk', 'svg-macaron'];
 
-            // --- 게임 상태 변수 ---
+            // --- 게임 상태 변수 (수정됨) ---
             let score = 0;
             let lives = 0;
             let currentCombo = 0;
-            let currentOrder = null;
+            let currentOrder = []; // *** 배열로 변경 ***
             let gameActive = false;
             let patienceTimerId = null;
-            let lastOrders = []; // 최근 주문 기록 (연속 주문 제한용)
+            let lastOrders = []; // *** 주문 조합(문자열)을 저장 ***
 
             // --- 게임 설정 ---
-            let difficulty = 'easy'; // 'easy' 또는 'hard'
-            let PATIENCE_TIME_MS = 5000; // 손님 인내심 (기본 5초)
-            const MAX_CONSECUTIVE_ORDERS = 2; // 최대 연속 주문 횟수
+            let difficulty = 'easy';
+            let PATIENCE_TIME_MS = 3000; // Easy (3초)
+            const MAX_CONSECUTIVE_ORDERS = 2; 
 
             // --- 이벤트 리스너 설정 ---
-            // 'touchstart'는 모바일, 'mousedown'은 PC를 위한 이벤트.
-            // touch-action: manipulation; 을 CSS에 추가하여 300ms 딜레이를 제거함.
             const clickEvent = ('ontouchstart' in window) ? 'touchstart' : 'mousedown';
             
             startButton.addEventListener(clickEvent, handleStartButton);
@@ -398,26 +434,38 @@
             // --- 초기화 ---
             createDrinkButtons();
             updateLivesDisplay();
-            setupStartScreen(); // 오버레이 초기화
-
-            // --- 핵심 함수 ---
-
-            // 1. 시작 버튼 핸들러
-            function handleStartButton() {
-                if (gameOverlay.dataset.mode === 'info') {
-                    setupStartScreen(); // 정보 화면 -> 시작 화면
-                } else {
-                    startGame(); // 시작 화면 -> 게임 시작
+            setupStartScreen(); 
+            
+            // 오버레이 높이 조절 함수
+            function adjustOverlayHeight() {
+                const statsAreaHeight = statsArea.offsetHeight;
+                if (statsAreaHeight > 0) {
+                    gameOverlay.style.top = statsAreaHeight + 'px';
+                    gameOverlay.style.height = `calc(100% - ${statsAreaHeight}px)`;
                 }
             }
             
-            // 2. 게임 초기화 및 시작
+            adjustOverlayHeight();
+            window.addEventListener('resize', adjustOverlayHeight);
+            setTimeout(adjustOverlayHeight, 100); 
+
+            // --- 핵심 함수 ---
+
+            function handleStartButton() {
+                if (gameOverlay.dataset.mode === 'info') {
+                    setupStartScreen(); 
+                } else {
+                    startGame(); 
+                }
+            }
+            
             function startGame() {
                 score = 0;
                 lives = 3;
                 currentCombo = 0;
                 gameActive = true;
-                lastOrders = []; // 게임 시작 시 주문 기록 초기화
+                lastOrders = []; 
+                currentOrder = []; // (수정)
                 
                 scoreDisplay.textContent = `점수: ${score}`;
                 updateComboDisplay();
@@ -425,35 +473,32 @@
                 
                 gameOverlay.classList.add('hidden');
                 
-                // 버튼 비활성화
                 infoButton.disabled = true;
                 difficultyButton.disabled = true;
 
                 generateNewOrder();
             }
 
-            // 3. 게임 종료
             function endGame() {
                 gameActive = false;
                 clearTimeout(patienceTimerId);
                 
                 finalScoreDisplay.textContent = `최종 점수: ${score}점`;
                 startButton.textContent = '다시하기';
-                setupStartScreen(true); // '게임 종료' 상태로 시작 화면 설정
+                setupStartScreen(true); 
                 
                 gameOverlay.classList.remove('hidden');
                 
                 animalDisplay.innerHTML = '';
-                orderBubble.innerHTML = '';
+                orderList.innerHTML = ''; // (수정)
+                currentOrder = []; // (수정)
                 patienceBar.style.transition = 'none';
                 patienceBar.style.width = '100%';
 
-                // 버튼 활성화
                 infoButton.disabled = false;
                 difficultyButton.disabled = false;
             }
 
-            // 4. 음료 선택 버튼 생성
             function createDrinkButtons() {
                 drinkOptions.innerHTML = '';
                 DRINKS.forEach(drinkId => {
@@ -467,94 +512,124 @@
                 });
             }
 
-            // 5. 새 주문 생성
+            // *** 새 주문 생성 (대폭 수정) ***
             function generateNewOrder() {
                 if (!gameActive) return;
 
-                // 인내심 타이머 리셋 및 시작
                 clearTimeout(patienceTimerId);
                 patienceBar.style.transition = 'none';
                 patienceBar.style.width = '100%';
                 
-                void patienceBar.offsetWidth; // Reflow 강제
-                
-                patienceBar.style.transition = `width ${PATIENCE_TIME_MS}ms linear`;
-                patienceBar.style.width = '0%';
-                
-                patienceTimerId = setTimeout(() => handleWrongAnswer(true), PATIENCE_TIME_MS);
+                void patienceBar.offsetWidth; 
 
                 // 랜덤 동물
                 const randomAnimalId = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
                 animalDisplay.innerHTML = '';
                 animalDisplay.appendChild(document.getElementById(randomAnimalId).cloneNode(true));
 
-                // *** 요청사항: 연속 주문 제한 로직 (새로 추가) ***
-                let newOrderCandidate;
-                let consecutiveCount = 0;
+                // 1. 주문 생성 (연속 제한 포함)
+                let newOrderList, newOrderString;
                 do {
-                    newOrderCandidate = DRINKS[Math.floor(Math.random() * DRINKS.length)];
-                    // 최근 주문이 있을 경우, 연속된 주문 카운트
-                    if (lastOrders.length > 0 && newOrderCandidate === lastOrders[lastOrders.length - 1]) {
-                        consecutiveCount++;
-                    } else {
-                        consecutiveCount = 0; // 다른 주문이면 리셋
+                    newOrderList = [];
+                    // 1, 2, 3개 중 랜덤
+                    const numItems = Math.floor(Math.random() * 3) + 1; 
+                    for (let i = 0; i < numItems; i++) {
+                        // 중복 허용
+                        newOrderList.push(DRINKS[Math.floor(Math.random() * DRINKS.length)]);
                     }
-                } while (consecutiveCount >= MAX_CONSECUTIVE_ORDERS); // 최대 2회 연속까지만 허용
+                    newOrderString = newOrderList.join(','); // 비교용 문자열
 
-                currentOrder = newOrderCandidate;
-                lastOrders.push(currentOrder);
-                // 기록은 최근 3개 정도만 유지 (필요에 따라 조절)
+                    // 연속 주문 확인
+                    if (lastOrders.length < MAX_CONSECUTIVE_ORDERS) break; 
+                    
+                    const lastNOrders = lastOrders.slice(-MAX_CONSECUTIVE_ORDERS);
+                    // 최근 N개 주문이 모두 새 주문과 다르다면, 루프 탈출
+                    if (!lastNOrders.every(order => order === newOrderString)) break; 
+                    
+                } while (true); // (최근 N개가 모두 같다면 다시 생성)
+
+                currentOrder = newOrderList; // 현재 주문(배열)으로 설정
+                lastOrders.push(newOrderString);
                 if (lastOrders.length > 3) {
                     lastOrders.shift();
                 }
 
-                orderBubble.innerHTML = '';
-                orderBubble.appendChild(document.getElementById(currentOrder).cloneNode(true));
+                // 2. 시간 계산
+                const numItems = currentOrder.length;
+                const timeMultiplier = 1 + (numItems - 1) * 0.7;
+                const totalPatienceTime = PATIENCE_TIME_MS * timeMultiplier;
                 
-                // 버튼 위치 섞기
+                // 3. 타이머 시작
+                patienceBar.style.transition = `width ${totalPatienceTime}ms linear`;
+                patienceBar.style.width = '0%';
+                patienceTimerId = setTimeout(() => handleWrongAnswer(true), totalPatienceTime);
+
+                // 4. 주문 표시
+                redrawOrderBubble();
+                
+                // 5. 버튼 섞기
                 shuffleButtons();
             }
 
-            // 6. 음료 선택 처리
+            // *** 음료 선택 처리 (대폭 수정) ***
             function handleDrinkSelection(e) {
                 if (!gameActive) return;
-
                 const selectedButton = e.target.closest('.drink-button');
                 if (!selectedButton) return;
-
-                clearTimeout(patienceTimerId);
+                
                 const selectedDrinkId = selectedButton.dataset.drinkId;
 
-                if (selectedDrinkId === currentOrder) {
-                    handleCorrectAnswer();
+                // 1. 주문 목록에 선택한 음료가 있는지 확인
+                const index = currentOrder.indexOf(selectedDrinkId);
+
+                if (index > -1) {
+                    // 2. 정답: 주문 목록에서 해당 아이템 1개 제거
+                    currentOrder.splice(index, 1);
+                    redrawOrderBubble(); // 말풍선 UI 갱신
+
+                    // 3. 주문을 모두 완료했는지 확인
+                    if (currentOrder.length === 0) {
+                        clearTimeout(patienceTimerId); // 시간 정지
+                        handleCorrectAnswer(); // 성공 처리
+                    }
+                    // (아직 남았다면 타이머는 계속 돔)
                 } else {
-                    handleWrongAnswer(false);
+                    // 4. 오답: 주문 목록에 없는 음료 클릭
+                    clearTimeout(patienceTimerId); // 시간 정지
+                    handleWrongAnswer(false); // 실패 처리
                 }
             }
 
-            // 7. 정답 처리
+            // *** 말풍선 UI 갱신 함수 (새로 추가) ***
+            function redrawOrderBubble() {
+                orderList.innerHTML = ''; // 말풍선 비우기
+                const count = currentOrder.length;
+                orderList.className = `count-${count}`; // CSS 클래스 설정
+                
+                currentOrder.forEach(drinkId => {
+                    const svgNode = document.getElementById(drinkId).cloneNode(true);
+                    orderList.appendChild(svgNode);
+                });
+            }
+
+            // (이하 함수들은 거의 동일)
+
             function handleCorrectAnswer() {
                 currentCombo++;
                 score += (10 * currentCombo);
-                
                 scoreDisplay.textContent = `점수: ${score}`;
                 updateComboDisplay();
                 showFeedback('correct');
-
-                setTimeout(generateNewOrder, 300);
+                setTimeout(generateNewOrder, 300); // 0.3초 후 다음 주문
             }
 
-            // 8. 오답/시간초과 처리
             function handleWrongAnswer(isTimeout) {
                 lives--;
                 currentCombo = 0;
-                
                 updateLivesDisplay();
                 updateComboDisplay();
                 showFeedback(isTimeout ? 'timeout' : 'wrong');
-                
-                gameActive = false; // 피드백 동안 잠시 멈춤
-
+                gameActive = false; 
                 setTimeout(() => {
                     if (lives <= 0) {
                         endGame();
@@ -565,9 +640,6 @@
                 }, 500);
             }
 
-            // --- 유틸리티 및 UI 함수 ---
-
-            // 9. 피드백 UI
             function showFeedback(type) {
                 let icon = '';
                 switch(type) {
@@ -577,25 +649,20 @@
                 }
                 feedbackDisplay.className = `feedback ${type} show`;
                 feedbackDisplay.textContent = icon;
-
                 setTimeout(() => {
                     feedbackDisplay.className = 'feedback';
                 }, 300);
             }
 
-            // 10. UI 업데이트
             function updateLivesDisplay() {
                 livesDisplay.textContent = '❤️'.repeat(lives) + '🖤'.repeat(3 - lives);
             }
-
             function updateComboDisplay() {
                 comboDisplay.textContent = (currentCombo > 1) ? `COMBO x${currentCombo}` : '';
             }
 
-            // 11. 버튼 섞기 함수
             function shuffleButtons() {
                 const buttons = Array.from(drinkOptions.children);
-                // 간단한 배열 섞기 (Fisher-Yates)
                 for (let i = buttons.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [buttons[i], buttons[j]] = [buttons[j], buttons[i]];
@@ -603,52 +670,54 @@
                 buttons.forEach(button => drinkOptions.appendChild(button));
             }
 
-            // 12. 정보 버튼 함수
             function showInfo() {
-                if (gameActive) return;
-                
+                if (gameActive) return; 
                 gameOverlay.dataset.mode = 'info';
                 finalScoreDisplay.style.display = 'none';
                 overlayMessage.innerHTML = `
                     --- <b>게임 방법</b> ---<br><br>
                     1. 손님의 주문(말풍선)을 확인하세요.<br>
-                    2. 하단의 4가지 메뉴 중 올바른 메뉴를 터치하세요.<br>
-                    3. 인내심 바(초록색)가 닳기 전에 성공해야 합니다.<br>
-                    4. 연속 성공 시 <b>콤보 보너스</b> 점수를 얻습니다.<br>
-                    5. 틀리거나 시간이 초과되면 목숨(❤️)이 1개 줄어들고 콤보가 초기화됩니다.<br>
-                    6. 목숨 3개를 모두 잃으면 게임이 종료됩니다.
+                       (최대 3개까지 주문합니다)<br>
+                    2. 하단의 메뉴 중 올바른 메뉴를 <b>순서 상관없이</b> 터치하세요.<br>
+                    3. 주문한 메뉴를 모두 제공해야 성공입니다.<br>
+                    4. 인내심 바가 닳기 전에 성공해야 합니다.<br>
+                       (주문이 많으면 시간이 조금 늘어납니다)<br>
+                    5. 연속 성공 시 <b>콤보 보너스</b> 점수를 얻습니다.<br>
+                    6. 실수 시(오답, 시간초과) 목숨(❤️)이 1개 줄어듭니다.
                 `;
                 startButton.textContent = '돌아가기';
                 gameOverlay.classList.remove('hidden');
             }
 
-            // 13. 난이도 토글 함수
             function toggleDifficulty() {
                 if (gameActive) return;
 
                 if (difficulty === 'easy') {
+                    difficulty = 'medium';
+                    PATIENCE_TIME_MS = 1500; // 1.5s
+                    difficultyButton.textContent = 'Medium';
+                    difficultyButton.classList.add('medium');
+                    difficultyButton.classList.remove('hard');
+                } else if (difficulty === 'medium') {
                     difficulty = 'hard';
-                    PATIENCE_TIME_MS = 3000; // 3초
+                    PATIENCE_TIME_MS = 600; // 0.6s
                     difficultyButton.textContent = 'Hard';
+                    difficultyButton.classList.remove('medium');
                     difficultyButton.classList.add('hard');
-                } else {
+                } else { // 'hard'
                     difficulty = 'easy';
-                    PATIENCE_TIME_MS = 5000; // 5초
+                    PATIENCE_TIME_MS = 3000; // 3s
                     difficultyButton.textContent = 'Easy';
                     difficultyButton.classList.remove('hard');
+                    difficultyButton.classList.remove('medium');
                 }
             }
             
-            // 14. 시작 화면 설정 함수
             function setupStartScreen(isGameOver = false) {
                 gameOverlay.dataset.mode = 'start';
                 overlayMessage.style.display = 'block';
                 
-                if (!isGameOver) {
-                    finalScoreDisplay.style.display = 'none';
-                } else {
-                    finalScoreDisplay.style.display = 'block';
-                }
+                finalScoreDisplay.style.display = isGameOver ? 'block' : 'none';
 
                 overlayMessage.innerHTML = `
                     손님의 주문을 보고<br>
